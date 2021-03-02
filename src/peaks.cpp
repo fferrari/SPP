@@ -187,7 +187,7 @@ extern "C" {
   // fi_R - vector of signed fragment indecies
   // return_list_R - whether a list of fragments should be returned for each point
   // return_unique_R - whether points in multiple fragments should be omitted
-  SEXP points_within(SEXP x_R,SEXP se_R,SEXP fi_R,SEXP return_list_R,SEXP return_unique_R,SEXP return_point_counts_R) {
+  SEXP points_withinC(SEXP x_R,SEXP se_R,SEXP fi_R,SEXP return_list_R,SEXP return_unique_R,SEXP return_point_counts_R) {
 #ifdef DEBUG  
     Rprintf("start\n");
 #endif
@@ -296,7 +296,7 @@ extern "C" {
     double lambda=*(REAL(lambda_R));
 
     int return_peaks=*(INTEGER(return_peaks_R));
-    double min_peak=*(REAL(min_peak_lr_R));
+    //double min_peak=*(REAL(min_peak_lr_R));
 
     int spos=*(INTEGER(spos_R));
     int epos=*(INTEGER(epos_R));
@@ -684,8 +684,9 @@ extern "C" {
     Rprintf("n=%d; npos=%d; max_val=%d\n",n,LENGTH(pos_R),max_val);
 #endif
 
-    int s[n]; // flag status for each set
-    double mv[n]; // max/min value of current clusters
+    //int s[n]; // flag status for each set
+    int *s=new int[n];
+    //double mv[n]; // max/min value of current clusters
 
     for(int i=0;i<n;i++) { s[i]=0; }
     
@@ -798,6 +799,9 @@ extern "C" {
     } else {
       UNPROTECT(4);
     }
+
+    //free-ing allocated space for array
+    delete[] s;
     return(ans_R);
   }
 

@@ -7,21 +7,59 @@
 
 # -------- ROUTINES FOR READING IN THE DATA FILES ------------
 # fix.chromosome.names : remove ".fa" suffix from match sequence names
+
+
 read.eland.tags <- function(filename,read.tag.names=F,fix.chromosome.names=T,max.eland.tag.length=-1,extended=F,multi=F) {
   if(read.tag.names) { rtn <- as.integer(1); } else { rtn <- as.integer(0); };
   storage.mode(max.eland.tag.length) <- "integer";
-  callfunction <- "read_eland";
-  if(extended) { callfunction <- "read_eland_extended"; };
-  if(multi) { callfunction <- "read_eland_multi"; };
-  tl <- lapply(.Call(callfunction,path.expand(filename),rtn,max.eland.tag.length),function(d) {
-    xo <- order(abs(d$t));
-    d$t <- d$t[xo];
-    d$n <- d$n[xo];
-    if(read.tag.names) {
-      d$s <- d$s[xo];
-    }
-    return(d);
-  });
+  
+  # callfunction <- "read_eland";
+  # if(extended) { callfunction <- "read_eland_extended"; };
+  # if(multi) { callfunction <- "read_eland_multi"; };
+  # tl <- lapply(.Call(callfunction,path.expand(filename),rtn,max.eland.tag.length),function(d) {
+  #   xo <- order(abs(d$t));
+  #   d$t <- d$t[xo];
+  #   d$n <- d$n[xo];
+  #   if(read.tag.names) {
+  #     d$s <- d$s[xo];
+  #   }
+  #   return(d);
+  # });
+  ##substitute of the commented code-junk above, to address a warning during compilation
+  if (multi) 
+  {
+    tl <- lapply(.Call("read_eland_multi",path.expand(filename),rtn,max.eland.tag.length),function(d) {
+      xo <- order(abs(d$t));
+      d$t <- d$t[xo];
+      d$n <- d$n[xo];
+      if(read.tag.names) {
+        d$s <- d$s[xo];
+      }
+      return(d);
+    });
+  }else if (extended) {
+    tl <- lapply(.Call("read_eland_extended",path.expand(filename),rtn,max.eland.tag.length),function(d) {
+      xo <- order(abs(d$t));
+      d$t <- d$t[xo];
+      d$n <- d$n[xo];
+      if(read.tag.names) {
+        d$s <- d$s[xo];
+      }
+      return(d);
+    });
+  }else{
+    tl <- lapply(.Call("read_eland",path.expand(filename),rtn,max.eland.tag.length),function(d) {
+      xo <- order(abs(d$t));
+      d$t <- d$t[xo];
+      d$n <- d$n[xo];
+      if(read.tag.names) {
+        d$s <- d$s[xo];
+      }
+      return(d);
+    });
+  };
+
+
   if(fix.chromosome.names) {
     # remove ".fa"
     names(tl) <- gsub("\\.fa","",names(tl))
@@ -352,7 +390,8 @@ get.binding.characteristics <- function(data,srange=c(50,500),bin=5,cluster=NULL
   th <- (ccl.av$y[pi]-ccl.av$y[length(ccl.av$y)])/3+ccl.av$y[length(ccl.av$y)]
   whs <- max(ccl.av$x[ccl.av$y>=th]);
 
-  if (! is.integer(whs)) { # Anshul: added this to avoid situations where whs ends up being -Inf
+  #  if (! is.integer(whs)) { # Anshul: added this to avoid situations where whs ends up being -Inf
+  if (!is.finite(whs)) { # fixed to avoid a TRUE with numeric values
     whs <- ccl.av$x[ min(c(2*pi,length(ccl.av$y))) ]
   }
 
@@ -499,7 +538,7 @@ find.binding.positions <- function(signal.data,f=1,e.value=NULL,fdr=NULL, masked
   chrl <- names(prd$npl); names(chrl) <- chrl;
   prd$npl <- lapply(chrl,function(chr) {
     pd <- prd$npl[[chr]];
-    pd$nt <- points.within(abs(signal.data[[chr]]),pd$x-tag.count.whs,pd$x+tag.count.whs,return.point.counts=T);
+    pd$nt <- points_within(abs(signal.data[[chr]]),pd$x-tag.count.whs,pd$x+tag.count.whs,return.point.counts=T);
     return(pd);
   });
   prd$f <- f;
@@ -811,9 +850,9 @@ output.binding.results <- function(results,filename) {
     d <- results$npl[[chr]];
     if(dim(d)[1]>0) {
       if(results$thr$type=="topN") {
-        od <- cbind(rep(chr,dim(d)[1]),subset(d,select=c(x,y,enr,enr.mle)))
+        od <- cbind(rep(chr,dim(d)[1]),subset(d,select=c("x","y","enr","enr.mle")))
       } else {
-        od <- cbind(rep(chr,dim(d)[1]),subset(d,select=c(x,y,evalue,fdr,enr,enr.mle)))
+        od <- cbind(rep(chr,dim(d)[1]),subset(d,select=c("x","y","evalue","fdr","enr","enr.mle")))
       }
       write.table(od,file=filename,col.names=F,row.names=F,sep="\t",append=T,quote=F)
     }
@@ -928,47 +967,48 @@ t.plotcc <- function(ac, lab=c(10,5,7), ylab="correlation", xlab="lag", pch=19, 
   }
   
   # plot chromosome-acerage cross-correlation 
-  t.plotavcc <- function(ci, main=paste(ci,"chromosome average"), ccl=tl.cc, return.ac=F, ttl=tl, plot=T, ... ) {
-    cc <- ccl[[ci]];
-    if(length(cc)==1)  { return(cc[[1]]) };
-    if(length(cc)==0) { return(c()) };
-    ac <- do.call(rbind,cc);
-    # omit NA chromosomes
-    ina <- apply(ac,1,function(d) any(is.na(d)));
-
-    tags <- ttl[[ci]]; 
-    avw <- unlist(lapply(tags,length));    avw <- avw/sum(avw);    
-    ac <- ac[!ina,]; avw <- avw[!ina];
-    ac <- apply(ac,2,function(x) sum(x*avw));
-    if(plot) {
-      m <- t.plotcc(ac, main=main, ...);
-      if(!return.ac) { return(m) }
-    }
-    if(return.ac) { return(ac) }
-  }
-
-  t.plotchrcc <- function(ci,ncol=4, ccl=tl.cc, ... ) {
-    cc <- ccl[[ci]];
-    ac <- do.call(rbind,cc);
-    par(mfrow = c(length(cc)/ncol,ncol), mar = c(3.5,3.5,2.0,0.5), mgp = c(2,0.65,0), cex = 0.8)
-    lapply(names(cc),function(ch) { t.plotcc(cc[[ch]],main=paste(ci,": chr",ch,sep=""), ...) })
-  }
-
-  t.plotavccl <- function(ci, ccl=tl.ccl, main=paste(ci,"chromosome average"), rtl=tl, ... ) {
-    #cc <- lapply(ccl[[ci]],function(x) { if(!is.null(x$M)) { x$M <- NULL;}; return(x); });
-    cc <- ccl[[ci]];
-    chrs <- names(cc[[1]]); names(chrs) <- chrs;
-    acl <- lapply(cc,function(x) do.call(rbind,x));
-    tags <- rtl[[ci]][chrs]; 
-    avw <- unlist(lapply(tags,length));    avw <- avw/sum(avw);
-    acl <- lapply(acl,function(ac) apply(ac,2,function(x) sum(x*avw)))
-    t.plotcc(acl, main=main, ...);
-  }
+  t.plotavcc <- function(ci, main=paste(ci,"chromosome average"), ccl, return.ac=F, ttl, plot=T, ... ) {
+      cc <- ccl[[ci]];
+      if(length(cc)==1)  { return(cc[[1]]) };
+      if(length(cc)==0) { return(c()) };
+      ac <- do.call(rbind,cc);
+      # omit NA chromosomes
+      ina <- apply(ac,1,function(d) any(is.na(d)));
   
-  t.plotchrccl <- function(ci,ccl=tl.ccl,ncol=4, ... ) {
-    par(mfrow = c(length(cc[[1]])/ncol,ncol), mar = c(3.5,3.5,2.0,0.5), mgp = c(2,0.65,0), cex = 0.8)
-    lapply(names(cc[[1]]),function(ch) { t.plotcc(lapply(cc,function(x) x[[ch]]),main=paste(ci,": chr",ch,sep=""), ...) })
-  }
+      tags <- ttl[[ci]]; 
+      avw <- unlist(lapply(tags,length));    avw <- avw/sum(avw);    
+      ac <- ac[!ina,]; avw <- avw[!ina];
+      ac <- apply(ac,2,function(x) sum(x*avw));
+      if(plot) {
+        m <- t.plotcc(ac, main=main, ...);
+        if(!return.ac) { return(m) }
+      }
+      if(return.ac) { return(ac) }
+    }
+
+  t.plotchrcc <- function(ci,ncol=4, ccl, ... ) {
+      cc <- ccl[[ci]];
+      ac <- do.call(rbind,cc);
+      par(mfrow = c(length(cc)/ncol,ncol), mar = c(3.5,3.5,2.0,0.5), mgp = c(2,0.65,0), cex = 0.8)
+      lapply(names(cc),function(ch) { t.plotcc(cc[[ch]],main=paste(ci,": chr",ch,sep=""), ...) })
+    }
+
+  t.plotavccl <- function(ci, ccl, main=paste(ci,"chromosome average"), rtl, ... ) {
+      #cc <- lapply(ccl[[ci]],function(x) { if(!is.null(x$M)) { x$M <- NULL;}; return(x); });
+      cc <- ccl[[ci]];
+      chrs <- names(cc[[1]]); names(chrs) <- chrs;
+      acl <- lapply(cc,function(x) do.call(rbind,x));
+      tags <- rtl[[ci]][chrs]; 
+      avw <- unlist(lapply(tags,length));    avw <- avw/sum(avw);
+      acl <- lapply(acl,function(ac) apply(ac,2,function(x) sum(x*avw)))
+      t.plotcc(acl, main=main, ...);
+    }
+  
+  t.plotchrccl <- function(ci,ccl,ncol=4, ... ) {
+      cc <- ccl[[ci]];
+      par(mfrow = c(length(cc[[1]])/ncol,ncol), mar = c(3.5,3.5,2.0,0.5), mgp = c(2,0.65,0), cex = 0.8)
+      lapply(names(cc[[1]]),function(ch) { t.plotcc(lapply(cc,function(x) x[[ch]]),main=paste(ci,": chr",ch,sep=""), ...) })
+    }
 
   
 
@@ -1298,7 +1338,7 @@ wtd <- function(x,y,s,e,whs=200,return.peaks=T,min.thr=5,min.dist=200,step=1,dir
   storage.mode(round.up) <- "integer";
   im <- as.integer(ignore.masking);
   storage.mode(im) <- "integer";
-  z <- .Call("wtd",xh,yh,whs,rp,min.dist,min.thr,dcon,tag.weight,im,bg.subtract,bg.xh,bg.yh,bg.whs,bg.weight,round.up);
+  z <- .Call("spp_wtd",xh,yh,whs,rp,min.dist,min.thr,dcon,tag.weight,im,bg.subtract,bg.xh,bg.yh,bg.whs,bg.weight,round.up,PACKAGE="spp");
   if(return.peaks) {
     return(data.frame(x=(z$x+rx[1])*step,y=z$v));
   } else {
@@ -1460,7 +1500,7 @@ lwcc <- function(x,y,s,e,whs=100,isize=20,return.peaks=T,min.thr=1,min.dist=100,
 
   # allocate return arrays
   #cc <- numeric(nx); storage.mode(cc) <- "double";
-  z <- .Call("lwcc",xh,yh,whs,isize,rp,min.dist,min.thr,tag.weight,bg.subtract,bg.xh,bg.yh,bg.whs,bg.weight,round.up);
+  z <- .Call("spp_lwcc",xh,yh,whs,isize,rp,min.dist,min.thr,tag.weight,bg.subtract,bg.xh,bg.yh,bg.whs,bg.weight,round.up,PACKAGE="spp");
   if(return.peaks) {
     return(data.frame(x=(z$x+rx[1])*step,y=z$v));
   } else {
@@ -1685,36 +1725,8 @@ determine.lwcc.threshold <- function(tvl,chrl=names(tvl),e.value=100, n.randomiz
     cat(paste(" done (thr=",signif(x$root,4),")\n"));
   }
   return(x);
-
 }
 
-
-# determine membership of points in fragments
-points.within <- function(x,fs,fe,return.list=F,return.unique=F,sorted=F,return.point.counts=F) {
-  if(is.null(x) | length(x) < 1) { return(c()) };
-  if(!sorted) {
-    ox <- rank(x,ties="first");
-    x <- sort(x);
-  }
-
-  se <- c(fs,fe);
-  fi <- seq(1:length(fs));
-  fi <- c(fi,-1*fi);
-
-  fi <- fi[order(se)];
-  se <- sort(se);
-  
-  storage.mode(x) <- storage.mode(fi) <- storage.mode(se) <- "integer";
-  if(return.unique) { iu <- 1; } else { iu <- 0; }
-  if(return.list) { il <- 1; } else { il <- 0; }
-  if(return.point.counts) { rpc <- 1; } else { rpc <- 0; }
-  storage.mode(iu) <- storage.mode(il) <- storage.mode(rpc) <- "integer";
-  result <- .Call("points_within",x,se,fi,il,iu,rpc);
-  if(!sorted & !return.point.counts) {
-    result <- result[ox];
-  }
-  return(result);  
-}
 
 
 # determine cooridnates of points x relative to signed
@@ -1767,9 +1779,9 @@ filter.binding.sites <- function(bd,tec,exclude=F) {
       ctec <- tec[[chr]];
       if(length(ctec$s)>0) {
         if(exclude) {
-          pwi <- which(points.within(cbd$x,ctec$s,ctec$e)== -1);
+          pwi <- which(points_within(cbd$x,ctec$s,ctec$e)== -1);
         } else {
-          pwi <- which(points.within(cbd$x,ctec$s,ctec$e)> -1);
+          pwi <- which(points_within(cbd$x,ctec$s,ctec$e)> -1);
         }
         return(cbd[pwi,]);
       } else {
@@ -1973,7 +1985,7 @@ calculate.enrichment.estimates <- function(binding.positions,signal.data=NULL,co
       
       edf <- lapply(background.scales,function(background.width.multiplier) {
         sig.mult <- bg.weight*f/background.width.multiplier;
-        nbg <- points.within(abs(control.data[[chr]]),d$x-tag.count.whs*background.width.multiplier,d$x+tag.count.whs*background.width.multiplier,return.point.counts=T,return.unique=F);
+        nbg <- points_within(abs(control.data[[chr]]),d$x-tag.count.whs*background.width.multiplier,d$x+tag.count.whs*background.width.multiplier,return.point.counts=T,return.unique=F);
         
         nfg <- d$nt;
       
@@ -2023,7 +2035,7 @@ t.precalculate.ref.peak.agreement <- function(ref,sf,agreement.distance=50,enr.f
       
     ov <- data.frame(do.call(rbind,lapply(cn,function(chr) {
       if(dim(ref[[chr]])[1]<1) { return(cbind(ov=c(),re=c(),oe=c())) };
-      pwi <- points.within(ref[[chr]]$x,sd$npl[[chr]]$x-agreement.distance,sd$npl[[chr]]$x+agreement.distance);
+      pwi <- points_within(ref[[chr]]$x,sd$npl[[chr]]$x-agreement.distance,sd$npl[[chr]]$x+agreement.distance);
       pwi[pwi==-1] <- NA;
       renr <- ref[[chr]][,enr.field]
       oenr <- sd$npl[[chr]][,enr.field][pwi];
@@ -2109,7 +2121,6 @@ t.find.min.saturated.enr <- function(pal,thr=0.01,plot=F,return.number.of.peaks=
 }
 
 
-
 # determine d1/d2 dataset size ratio. If background.density.scaling=F, the ratio of tag counts is returned.
 # if background.density.scaling=T, regions of significant tag enrichment are masked prior to ratio calculation.
 dataset.density.ratio <- function(d1,d2,min.tag.count.z=4.3,wsize=1e3,mcs=0,background.density.scaling=T,return.proportion=F) {
@@ -2121,7 +2132,7 @@ dataset.density.ratio <- function(d1,d2,min.tag.count.z=4.3,wsize=1e3,mcs=0,back
   ntc <- do.call(rbind,lapply(chrl,function(chr) {
     x1 <- tag.enrichment.clusters(abs(d1[[chr]]),c(),wsize=wsize,bg.weight=0,min.tag.count.z=min.tag.count.z,mcs=mcs,either=F)
     x2 <- tag.enrichment.clusters(abs(d2[[chr]]),c(),wsize=wsize,bg.weight=0,min.tag.count.z=min.tag.count.z,mcs=mcs,either=F)
-    return(c(length(which(points.within(abs(d1[[chr]]),c(x1$s,x2$s)-wsize/2,c(x1$e,x2$e)+wsize/2)==-1)),length(which(points.within(abs(d2[[chr]]),c(x1$s,x2$s)-wsize/2,c(x1$e,x2$e)+wsize/2)==-1))))
+    return(c(length(which(points_within(abs(d1[[chr]]),c(x1$s,x2$s)-wsize/2,c(x1$e,x2$e)+wsize/2)==-1)),length(which(points_within(abs(d2[[chr]]),c(x1$s,x2$s)-wsize/2,c(x1$e,x2$e)+wsize/2)==-1))))
   }))
   ntcs <- apply(ntc,2,sum);
   #print(ntcs/c(sum(unlist(lapply(d1,length))),sum(unlist(lapply(d2,length)))));
@@ -2137,7 +2148,7 @@ dataset.density.size <- function(d1,min.tag.count.z=4.3,wsize=1e3,mcs=0,backgrou
   chrl <- names(d1);
   ntc <- lapply(chrl,function(chr) {
     x1 <- tag.enrichment.clusters(abs(d1[[chr]]),c(),wsize=wsize,bg.weight=0,min.tag.count.z=min.tag.count.z,mcs=mcs,either=F)
-    return(length(which(points.within(abs(d1[[chr]]),x1$s-wsize/2,x1$e+wsize/2)==-1)))
+    return(length(which(points_within(abs(d1[[chr]]),x1$s-wsize/2,x1$e+wsize/2)==-1)))
   })
   return(sum(unlist(ntc)))
 }
@@ -2152,7 +2163,7 @@ old.dataset.density.ratio <- function(d1,d2,min.tag.count.z=4.3,wsize=1e3,mcs=0,
       x <- tag.enrichment.clusters(abs(d),c(),wsize=wsize,bg.weight=0,min.tag.count.z=min.tag.count.z,mcs=mcs,either=F)
       x$s <- x$s-wsize/2; x$e <- x$e+wsize/2;
       x <- regionset.intersection.c(list(x),do.union=T)
-      return(c(n=length(which(points.within(abs(d),x$s,x$e)==-1)),s=diff(range(abs(d))),m=sum(x$e-x$s)));
+      return(c(n=length(which(points_within(abs(d),x$s,x$e)==-1)),s=diff(range(abs(d))),m=sum(x$e-x$s)));
     })
   }
 
@@ -2205,9 +2216,11 @@ densum <- function(vin,bw=5,dw=3,match.wt.f=NULL,return.x=T,from=min(vin),to=max
     storage.mode(step) <- storage.mode(dlength) <- storage.mode(bw) <- storage.mode(dw) <-"integer";
     dout <- .Call("ccdensum",pos,tc,spos,bw,dw,dlength,step);
   } else {
-    dout <- numeric(dlength); storage.mode(dout) <- "double";
-    storage.mode(dlength) <- "integer";
-    .C("cdensum",n,pos,tc,spos,bw,dw,dlength,step,dout,DUP=F);
+stop("Please set new.code=T to use the new ccdensum function. The old cdensum is deprecated")
+#    dout <- numeric(dlength); storage.mode(dout) <- "double";
+#    storage.mode(dlength) <- "integer";
+#    #.C("cdensum",n,pos,tc,spos,bw,dw,dlength,step,dout,DUP=F);
+#    .C("cdensum",n,pos,tc,spos,bw,dw,dlength,step,dout);
   }
   
   
@@ -2537,7 +2550,7 @@ add.broad.peak.regions <- function(chip.tags,input.tags,bp,window.size=500,z.thr
     if(is.null(npl) | dim(npl)[1]<1) {
       return(npl);
     }
-    pi <- points.within(npl$x,se[[chr]]$s,se[[chr]]$e,return.list=T);
+    pi <- points_within(npl$x,se[[chr]]$s,se[[chr]]$e,return.list=T);
     
     pm <- do.call(rbind,lapply(pi,function(rl) {
       if(length(rl)>0) {
@@ -2588,8 +2601,8 @@ get.broad.enrichment.clusters <- function(signal.data,control.data,window.size=1
     d <- se[[chr]];
     if(length(d$s>1)) {
       d <- regionset.intersection.c(list(d,d),do.union=T);
-      sc <- points.within(abs(signal.data[[chr]]+tag.shift),d$s,d$e,return.point.counts=T);
-      cc <- points.within(abs(control.data[[chr]]+tag.shift),d$s,d$e,return.point.counts=T);
+      sc <- points_within(abs(signal.data[[chr]]+tag.shift),d$s,d$e,return.point.counts=T);
+      cc <- points_within(abs(control.data[[chr]]+tag.shift),d$s,d$e,return.point.counts=T);
       d$rv <- log2((sc+1)/(cc+1)/bg.weight);
       return(d);
     } else {
@@ -2625,4 +2638,41 @@ get.clusters2 <- function(x,CL)  {
   end <- end[x[end] != 0]
 
   return (list(size=size,begin=begin,end=end))
+}
+
+
+##Deprecated function of points.within
+##points.within <- function(x,fs,fe,return.list=F,return.unique=F,sorted=F,return.point.counts=F, ...) {
+##  .Deprecated("points_within",package="spp") #include a package argument, too
+##  points_within(x=x,fs=fs,fe=fe,return.list=return.list,return.unique=return.unique,sorted=sorted,return.point.counts=return.point.counts, ...)
+##}
+
+
+##new points_within for deprecated points.within
+# determine membership of points in fragments
+points_within <- function(x,fs,fe,return.list=F,return.unique=F,sorted=F,return.point.counts=F, ...) {
+  if(is.null(x) | length(x) < 1) { return(c()) };
+  if(!sorted) {
+    #ox <- rank(x,ties="first");
+    ox <- rank(x,ties.method="first");
+    x <- sort(x);
+  }
+
+  se <- c(fs,fe);
+  fi <- seq(1:length(fs));
+  fi <- c(fi,-1*fi);
+
+  fi <- fi[order(se)];
+  se <- sort(se);
+  
+  storage.mode(x) <- storage.mode(fi) <- storage.mode(se) <- "integer";
+  if(return.unique) { iu <- 1; } else { iu <- 0; }
+  if(return.list) { il <- 1; } else { il <- 0; }
+  if(return.point.counts) { rpc <- 1; } else { rpc <- 0; }
+  storage.mode(iu) <- storage.mode(il) <- storage.mode(rpc) <- "integer";
+  result <- .Call("points_withinC",x,se,fi,il,iu,rpc);
+  if(!sorted & !return.point.counts) {
+    result <- result[ox];
+  }
+  return(result);  
 }

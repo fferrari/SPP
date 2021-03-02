@@ -24,7 +24,7 @@ extern "C" {
    * lwcc - calculate local window cross-correlation
    */
 
-  SEXP lwcc(SEXP x_R, // positive strand hist 
+  SEXP spp_lwcc(SEXP x_R, // positive strand hist 
 	    SEXP y_R, // negative strand hist of the same length
 	    SEXP osize_R,       // outer boundary distance
 	    SEXP isize_R,        // inner boundary distance
@@ -87,11 +87,15 @@ extern "C" {
 
 
     SEXP nv;
+    //UNPROTECT(nv=allocVector(REALSXP,n_x)); //putting declaration also here to avoid[-Wmaybe-uninitialized]
+    nv=allocVector(REALSXP,n_x); //putting declaration also here to avoid[-Wmaybe-uninitialized]
+
     double *d_nv;
     vector<int> ppos;
     vector<double> pval;
     if(!return_peaks) {
-      PROTECT(nv=allocVector(REALSXP,n_x)); 
+      //UNPROTECT(nv=allocVector(REALSXP,n_x)); 
+      nv=allocVector(REALSXP,n_x); 
       d_nv=REAL(nv);
       for(int i=0;i<n_x;i++) {
 	d_nv[i]=0;
@@ -181,7 +185,7 @@ extern "C" {
 	double varn=0;
 	double num=0;
 	double val=-1e3;
-	if(mp>0 & mn>0) {
+	if((mp>0) & (mn>0)) {
 	  for(int k=0;k<=(os-is);k++) {
 	    int xp1=x[i-os+k];
 	    int xp2=x[i+os-k];
@@ -304,30 +308,37 @@ extern "C" {
       }
 
       SEXP rpp_R,rpv_R;
-      PROTECT(rpp_R=allocVector(INTSXP,ppos.size())); 
-      PROTECT(rpv_R=allocVector(REALSXP,ppos.size())); 
+      //UNPROTECT(rpp_R=allocVector(INTSXP,ppos.size())); 
+      //UNPROTECT(rpv_R=allocVector(REALSXP,ppos.size())); 
+      rpp_R=allocVector(INTSXP,ppos.size()); 
+      rpv_R=allocVector(REALSXP,ppos.size()); 
+
       int* rpp=INTEGER(rpp_R);
       double* rpv=REAL(rpv_R);
 
-      for(int i=0;i<ppos.size();i++) {
+	  int iloop=ppos.size(); //creating dummy variable for the loop below to avoid [-Wsign-compare]
+      for(int i=0;i<iloop;i++) {
+      //for(int i=0;i<ppos.size();i++) {
 	rpp[i]=ppos[i];
 	rpv[i]=pval[i];
       }
     
       SEXP ans_R, names_R;
-      PROTECT(names_R = allocVector(STRSXP, 2));
+      //UNPROTECT(names_R = allocVector(STRSXP, 2));
+      names_R = allocVector(STRSXP, 2);
       SET_STRING_ELT(names_R, 0, mkChar("x"));
       SET_STRING_ELT(names_R, 1, mkChar("v"));
     
-      PROTECT(ans_R = allocVector(VECSXP, 2));
+      //UNPROTECT(ans_R = allocVector(VECSXP, 2));
+      ans_R = allocVector(VECSXP, 2);
       SET_VECTOR_ELT(ans_R, 0, rpp_R);
       SET_VECTOR_ELT(ans_R, 1, rpv_R);
       setAttrib(ans_R, R_NamesSymbol, names_R);
   
-      UNPROTECT(4);
+      //UNPROTECT(4);
       return(ans_R);
     } else {
-      UNPROTECT(1);
+      //UNPROTECT(1);
       return(nv);
     }
 
@@ -340,7 +351,7 @@ extern "C" {
    * wtd - window tag difference implementation
    */
 
-  SEXP wtd(SEXP x_R, // positive strand hist 
+  SEXP spp_wtd(SEXP x_R, // positive strand hist 
 	   SEXP y_R, // negative strand hist of the same length
 	   SEXP wsize_R,       // outer boundary distance
 	   SEXP return_peaks_R, // whether all correlation values, or just peaks should be returned
@@ -401,11 +412,15 @@ extern "C" {
     int bg_nn2=0;
     
     SEXP nv;
+    //UNPROTECT(nv=allocVector(REALSXP,n_x)); //putting declaration also here to avoid[-Wmaybe-uninitialized]
+    nv=allocVector(REALSXP,n_x); //putting declaration also here to avoid[-Wmaybe-uninitialized]
     double *d_nv;
     vector<int> ppos;
     vector<double> pval;
     if(!return_peaks) {
-      PROTECT(nv=allocVector(REALSXP,n_x)); 
+      //UNPROTECT(nv=allocVector(REALSXP,n_x)); 
+      nv=allocVector(REALSXP,n_x); 
+
       d_nv=REAL(nv);
       for(int i=0;i<n_x;i++) {
 	d_nv[i]=0;
@@ -623,30 +638,37 @@ extern "C" {
       }
 
       SEXP rpp_R,rpv_R;
-      PROTECT(rpp_R=allocVector(INTSXP,ppos.size())); 
-      PROTECT(rpv_R=allocVector(REALSXP,ppos.size())); 
+      //UNPROTECT(rpp_R=allocVector(INTSXP,ppos.size())); 
+      //UNPROTECT(rpv_R=allocVector(REALSXP,ppos.size())); 
+      rpp_R=allocVector(INTSXP,ppos.size()); 
+      rpv_R=allocVector(REALSXP,ppos.size()); 
+
       int* rpp=INTEGER(rpp_R);
       double* rpv=REAL(rpv_R);
 
-      for(int i=0;i<ppos.size();i++) {
+      int iloop=ppos.size(); //creating dummy variable for the loop below to avoid [-Wsign-compare]
+	  for(int i=0;i<iloop;i++) {
+      //for(int i=0;i<ppos.size();i++) {
 	rpp[i]=ppos[i];
 	rpv[i]=pval[i];
       }
     
       SEXP ans_R, names_R;
-      PROTECT(names_R = allocVector(STRSXP, 2));
+      //UNPROTECT(names_R = allocVector(STRSXP, 2));
+      names_R = allocVector(STRSXP, 2);
       SET_STRING_ELT(names_R, 0, mkChar("x"));
       SET_STRING_ELT(names_R, 1, mkChar("v"));
     
-      PROTECT(ans_R = allocVector(VECSXP, 2));
+      //UNPROTECT(ans_R = allocVector(VECSXP, 2));
+      ans_R = allocVector(VECSXP, 2);
       SET_VECTOR_ELT(ans_R, 0, rpp_R);
       SET_VECTOR_ELT(ans_R, 1, rpv_R);
       setAttrib(ans_R, R_NamesSymbol, names_R);
   
-      UNPROTECT(4);
+      //UNPROTECT(4);
       return(ans_R);
     } else {
-      UNPROTECT(1);
+      //UNPROTECT(1);
       return(nv);
     }
 

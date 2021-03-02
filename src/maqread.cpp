@@ -20,7 +20,6 @@ extern "C" {
 
 using namespace std;
 
-
 class lessAbsoluteValue {
 public:
   bool operator()(int a, int b) const {
@@ -64,7 +63,7 @@ extern "C" {
   m1 = &mm1;
 
   if (!f)  { 
-    cout<<"can't open input file \""<<fname<<"\"\n"; 
+    Rprintf("can't open input file \"",fname,"\"\n"); 
   }  else {
     Rprintf("opened %s\n",fname);
 
@@ -159,6 +158,7 @@ extern "C" {
     SEXP tv,nv,sv;
     PROTECT(tv=allocVector(INTSXP,csi->size()));   np++;
     PROTECT(nv=allocVector(INTSXP,csi->size()));   np++;
+    PROTECT(sv=allocVector(STRSXP,csi->size())); //add declaration after the definition to avoid [-Wmaybe-uninitialized]
     if(read_names) {
       PROTECT(sv=allocVector(STRSXP,csi->size()));   np++;
     }

@@ -24,6 +24,7 @@ extern "C" {
 #include <stdio.h>   /* flockfile, getc_unlocked, funlockfile */
 #include <stdlib.h>  /* malloc, realloc */
 
+
 #include <errno.h>   /* errno */
 #include <unistd.h>  /* ssize_t */
 ssize_t getline_local(char **lineptr, size_t *n, FILE *stream);
@@ -43,12 +44,13 @@ public:
 
 #ifdef HAVE_LIBBZ2
 int get_bzline(BZFILE* b,string& line) {
-  char c;
-  int     nBuf;
+  //char c;
+  char c='a';
+  //int nBuf;
   int bzerror=BZ_OK;
 
   while(bzerror == BZ_OK)  {  
-    nBuf=BZ2_bzRead(&bzerror, b, &c, 1);
+    //nBuf=BZ2_bzRead(&bzerror, b, &c, 1);
     if(bzerror==BZ_OK) {
       if(c=='\n') {
 	return bzerror;
@@ -68,7 +70,9 @@ int get_a_line(FILE *f,BZFILE *b,int bz2file,string& line) {
       return(1);
     } else {
       if(bzerror!=BZ_STREAM_END) {
-	cerr<<"encountered BZERROR="<<bzerror<<endl;
+	REprintf("encountered BZERROR=",bzerror);
+	//Rcpp::Rcerr<<"encountered BZERROR="<<bzerror<<std::endl;
+
       }
       return(0);
     }
@@ -436,7 +440,7 @@ SEXP read_meland_old(SEXP filename) {
 
   
   FILE *f=fopen(fname,"rb");
-  if (!f)  { cout<<"can't open input file \""<<fname<<"\"\n"; }
+  if (!f)  { Rprintf("can't open input file \"",fname,"\"\n"); }
   
   Rprintf("opened %s\n",fname);
 
@@ -553,6 +557,7 @@ SEXP read_meland_old(SEXP filename) {
     PROTECT(tv=allocVector(INTSXP,csi->size()));   np++;
     PROTECT(nv=allocVector(INTSXP,csi->size()));   np++;
     PROTECT(lv=allocVector(INTSXP,csi->size()));   np++;
+    PROTECT(sv=allocVector(STRSXP,csi->size()));   //add this here to avoid [-Wmaybe-uninitialized]
     if(read_names) {
       PROTECT(sv=allocVector(STRSXP,csi->size()));   np++;
     }
@@ -628,7 +633,7 @@ SEXP read_eland_mismatches(SEXP filename) {
 
   
   FILE *f=fopen(fname,"rb");
-  if (!f)  { cout<<"can't open input file \""<<fname<<"\"\n"; }
+  if (!f)  { Rprintf("can't open input file \"",fname,"\"\n"); }
 
   Rprintf("opened %s\n",fname);
 
@@ -648,8 +653,9 @@ SEXP read_eland_mismatches(SEXP filename) {
       sit++; 
       string seq=*sit++; 
       string str_nm=*sit++;
-      int nm=0;
+      //int nm=0;
       if(str_nm[0]=='U') {
+        int nm=0; //insert variable declaration here
 	nm=atoi((str_nm.c_str()+1));
       } else {
 	continue;
@@ -821,7 +827,7 @@ SEXP read_eland_mismatches(SEXP filename) {
 
   
   FILE *f=fopen(fname,"rb");
-  if (!f)  { cout<<"can't open input file \""<<fname<<"\"\n"; }
+  if (!f)  { Rprintf("can't open input file \"",fname,"\"\n"); }
   else {
   Rprintf("opened %s\n",fname);
 
@@ -935,6 +941,7 @@ SEXP read_eland_mismatches(SEXP filename) {
     SEXP tv,nv,sv;
     PROTECT(tv=allocVector(INTSXP,csi->size()));   np++;
     PROTECT(nv=allocVector(INTSXP,csi->size()));   np++;
+    PROTECT(sv=allocVector(STRSXP,csi->size())); //putting declaration after definition to avoid[-Wmaybe-uninitialized]
     if(read_names) {
       PROTECT(sv=allocVector(STRSXP,csi->size()));   np++;
     }
@@ -1008,7 +1015,7 @@ SEXP read_eland_mismatches(SEXP filename) {
 
   
   FILE *f=fopen(fname,"rb");
-  if (!f)  { cout<<"can't open input file \""<<fname<<"\"\n"; }
+  if (!f)  { Rprintf("can't open input file \"",fname,"\"\n"); }
   else {
   Rprintf("opened %s\n",fname);
 
@@ -1068,7 +1075,10 @@ SEXP read_eland_mismatches(SEXP filename) {
       string str_nm=*sit++;
       // count non-digit characters
       int nm=0;
-      for(int i=0;i<str_nm.size();i++) {
+
+      int iloop=str_nm.size();//creating dummy variable for the loop below to avoid [-Wsign-compare]
+      for(int i=0;i<iloop;i++) {
+      // for(int i=0;i<str_nm.size();i++) {
 	if(!isdigit(str_nm[i])) { nm++; }
       }
       
@@ -1219,7 +1229,7 @@ SEXP read_eland_multi(SEXP filename,SEXP read_tag_names_R,SEXP eland_tag_length_
   
   
   FILE *f=fopen(fname,"rb");
-  if (!f)  { cout<<"can't open input file \""<<fname<<"\"\n"; }
+  if (!f)  { Rprintf("can't open input file \"",fname,"\"\n"); }
   else {
   Rprintf("opened %s\n",fname);
 
@@ -1505,7 +1515,7 @@ SEXP read_eland_multi(SEXP filename,SEXP read_tag_names_R,SEXP eland_tag_length_
 
   
   FILE *f=fopen(fname,"rb");
-  if (!f)  { cout<<"can't open input file \""<<fname<<"\"\n"; 
+  if (!f)  { Rprintf("can't open input file \"",fname,"\"\n"); 
   } else {
 #ifdef HAVE_LIBBZ2
     BZFILE* b=0;  
@@ -1515,7 +1525,7 @@ SEXP read_eland_multi(SEXP filename,SEXP read_tag_names_R,SEXP eland_tag_length_
     if(strstr(fname,".bz2")) {
       bz2file=1;
       b=BZ2_bzReadOpen (&bzerror, f, 0, 0, NULL, 0);
-      if (bzerror != BZ_OK)  { cout<<"bzerror="<<bzerror<<endl; }
+      if (bzerror != BZ_OK)  { Rprintf("bzerror=",bzerror); }
     }
 #endif
 
@@ -1719,7 +1729,7 @@ SEXP read_eland_multi(SEXP filename,SEXP read_tag_names_R,SEXP eland_tag_length_
 
   
   FILE *f=fopen(fname,"rb");
-  if (!f)  { cout<<"can't open input file \""<<fname<<"\"\n"; 
+  if (!f)  { Rprintf("can't open input file \"",fname,"\"\n"); 
   } else {
 #ifdef HAVE_LIBBZ2
     BZFILE* b=0;  
@@ -1729,7 +1739,7 @@ SEXP read_eland_multi(SEXP filename,SEXP read_tag_names_R,SEXP eland_tag_length_
     if(strstr(fname,".bz2")) {
       bz2file=1;
       b=BZ2_bzReadOpen (&bzerror, f, 0, 0, NULL, 0);
-      if (bzerror != BZ_OK)  { cout<<"bzerror="<<bzerror<<endl; }
+      if (bzerror != BZ_OK)  { Rprintf("bzerror=",bzerror); }
     }
 #endif
 
@@ -1945,7 +1955,7 @@ SEXP read_eland_multi(SEXP filename,SEXP read_tag_names_R,SEXP eland_tag_length_
 
   
   FILE *f=fopen(fname,"rb");
-  if (!f)  { cout<<"can't open input file \""<<fname<<"\"\n"; }
+  if (!f)  { Rprintf("can't open input file \"",fname,"\"\n"); }
   else {
   Rprintf("opened %s\n",fname);
 
@@ -2123,7 +2133,7 @@ SEXP read_eland_multi(SEXP filename,SEXP read_tag_names_R,SEXP eland_tag_length_
 
   
   FILE *f=fopen(fname,"rb");
-  if (!f)  { cout<<"can't open input file \""<<fname<<"\"\n"; }
+  if (!f)  { Rprintf("can't open input file \"",fname,"\"\n"); }
   else {
   Rprintf("opened %s\n",fname);
 
@@ -2277,7 +2287,7 @@ SEXP read_eland_multi(SEXP filename,SEXP read_tag_names_R,SEXP eland_tag_length_
 
 
   FILE *f=fopen(fname,"rb");
-  if (!f)  { cout<<"can't open input file \""<<fname<<"\"\n"; }
+  if (!f)  { Rprintf("can't open input file \"",fname,"\"\n"); }
   else {
 
 #ifdef HAVE_LIBBZ2
@@ -2288,7 +2298,7 @@ SEXP read_eland_multi(SEXP filename,SEXP read_tag_names_R,SEXP eland_tag_length_
     if(strstr(fname,".bz2")) {
       bz2file=1;
       b=BZ2_bzReadOpen (&bzerror, f, 0, 0, NULL, 0);
-      if (bzerror != BZ_OK)  { cout<<"bzerror="<<bzerror<<endl; }
+      if (bzerror != BZ_OK)  { Rprintf("bzerror=",bzerror); }
     }
 #endif
 
@@ -2448,7 +2458,7 @@ SEXP read_eland_multi(SEXP filename,SEXP read_tag_names_R,SEXP eland_tag_length_
 
 
   FILE *f=fopen(fname,"rb");
-  if (!f)  { cout<<"can't open input file \""<<fname<<"\"\n"; }
+  if (!f)  { Rprintf("can't open input file \"",fname,"\"\n"); }
   else {
 
 #ifdef HAVE_LIBBZ2
@@ -2459,7 +2469,7 @@ SEXP read_eland_multi(SEXP filename,SEXP read_tag_names_R,SEXP eland_tag_length_
     if(strstr(fname,".bz2")) {
       bz2file=1;
       b=BZ2_bzReadOpen (&bzerror, f, 0, 0, NULL, 0);
-      if (bzerror != BZ_OK)  { cout<<"bzerror="<<bzerror<<endl; }
+      if (bzerror != BZ_OK)  { Rprintf("bzerror=",bzerror); }
     }
 #endif
 
